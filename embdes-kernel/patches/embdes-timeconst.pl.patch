@@ -1,0 +1,12 @@
+--- Olimex-kernel/kernel/timeconst.pl	2017-05-05 16:37:14.000000000 +0530
++++ embdes-kernel/kernel/timeconst.pl	2017-05-31 12:39:47.497123676 +0530
+@@ -370,7 +370,8 @@
+ 	}
+ 
+ 	@val = @{$canned_values{$hz}};
+-	if (!defined(@val)) {
++#	if (!defined(@val)) {
++	if (!@val) {
+ 		@val = compute_values($hz);
+ 	}
+ 	output($hz, @val);

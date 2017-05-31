@@ -1,0 +1,138 @@
+diff --git a/arch/arm/mach-rk30/board-rk31-sdk-vmac.c b/arch/arm/mach-rk30/board-rk31-sdk-vmac.c
+old mode 100644
+new mode 100755
+index a29bc9e..85d1a9b
+--- a/arch/arm/mach-rk30/board-rk31-sdk-vmac.c
++++ b/arch/arm/mach-rk30/board-rk31-sdk-vmac.c
+@@ -25,7 +25,11 @@ static int rk30_rmii_io_init(void)
+ 	iomux_set(RMII_TXD0);
+ 	iomux_set(RMII_TXD1);
+ 	iomux_set(RMII_TXEN);
++#if defined (CONFIG_RK29_VMAC_EXT_CLK)      
++	iomux_set(RMII_CLKIN);
++#else
+ 	iomux_set(RMII_CLKOUT);
++#endif
+ 
+ 	//rk3188 gpio3 and sdio drive strength , 
+     grf_writel(0x0f<<16|0x0f,GRF_IO_CON3);
+@@ -73,7 +77,11 @@ static int rk30_rmii_power_control(int enable)
+         	iomux_set(RMII_TXD0);
+         	iomux_set(RMII_TXD1);
+         	iomux_set(RMII_TXEN);
++#if defined (CONFIG_RK29_VMAC_EXT_CLK)        
++        	iomux_set(RMII_CLKIN);
++#else 
+         	iomux_set(RMII_CLKOUT);
++#endif
+ 	
+ 		gpio_direction_output(PHY_PWR_EN_GPIO, PHY_PWR_EN_VALUE);
+ 		gpio_set_value(PHY_PWR_EN_GPIO, PHY_PWR_EN_VALUE);
+diff --git a/arch/arm/mach-rk3188/clock_data.c b/arch/arm/mach-rk3188/clock_data.c
+index 6e9565a..e4d44c1 100755
+--- a/arch/arm/mach-rk3188/clock_data.c
++++ b/arch/arm/mach-rk3188/clock_data.c
+@@ -3536,6 +3536,12 @@ static void __init rk30_clock_common_init(unsigned long gpll_rate, unsigned long
+ 	// uart
+ 	rk30_clock_common_uart_init(&codec_pll_clk,&general_pll_clk);
+ 
++#if defined (CONFIG_RK29_VMAC_EXT_CLK)  
++    clk_set_parent_nolock(&clk_mac_pll_div, &general_pll_clk);
++    clk_set_rate_nolock(&clk_mac_pll_div, 50 * MHZ);
++    clk_set_parent_nolock(&clk_mac_ref, &rmii_clkin);//hzb
++    printk("hzb test rmii clk get form clkin\n");	//mac
++#else
+ 	//mac
+ 	if(!(gpll_rate % (50 * MHZ))) {
+ 		clk_set_parent_nolock(&clk_mac_pll_div, &general_pll_clk);
+@@ -3547,7 +3553,7 @@ static void __init rk30_clock_common_init(unsigned long gpll_rate, unsigned long
+ 		CLKDATA_DBG("mac can't get 50mhz, set to gpll\n");
+ 		clk_set_parent_nolock(&clk_mac_pll_div, &general_pll_clk);
+ 	}
+-
++#endif
+ 	//hsadc
+ 	//auto pll sel
+ 	//clk_set_parent_nolock(&clk_hsadc_pll_div, &general_pll_clk);
+diff --git a/arch/arm/plat-rk/iomux.c b/arch/arm/plat-rk/iomux.c
+old mode 100644
+new mode 100755
+index 93e40ea..e75288e
+--- a/arch/arm/plat-rk/iomux.c
++++ b/arch/arm/plat-rk/iomux.c
+@@ -200,7 +200,11 @@ static unsigned int default_mode[] = {
+ 	#endif
+ 
+ 	#ifdef CONFIG_RK30_VMAC
+-	RMII_CLKOUT, RMII_TXEN, RMII_TXD1, RMII_TXD0, RMII_RXERR, 
++#if defined (CONFIG_RK29_VMAC_EXT_CLK)  	    
++	RMII_CLKIN, RMII_TXEN, RMII_TXD1, RMII_TXD0, RMII_RXERR, 
++#else
++    RMII_CLKOUT, RMII_TXEN, RMII_TXD1, RMII_TXD0, RMII_RXERR, 
++#endif
+ 	RMII_CRS, RMII_RXD1, RMII_RXD0, RMII_MD, RMII_MDCLK,
+ 	#endif
+ #endif
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index f17b3b0..2c97cad 100755
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -260,6 +260,18 @@ config RK29_VMAC
+ 	help
+ 	  MAC device present on rockchip rk29xx 
+ 
++choice 
++	prompt "Ethernet clock select"
++	depends on NETDEV_10000 ||NETDEV_1000 ||NET_ETHERNET
++	default RK29_VMAC_INT_CLK
++
++	config RK29_VMAC_INT_CLK
++	    bool "Ethernet use internal clock"
++	
++	config RK29_VMAC_EXT_CLK
++	    bool "Ethernet use external clock"
++endchoice
++
+ source "drivers/net/eth_mac/Kconfig"
+ 
+ config MACE
+diff --git a/drivers/net/rk29_vmac.c b/drivers/net/rk29_vmac.c
+index d32da06..99b91b9 100755
+--- a/drivers/net/rk29_vmac.c
++++ b/drivers/net/rk29_vmac.c
+@@ -1048,7 +1048,11 @@ int vmac_open(struct net_device *dev)
+ 	ap->shutdown = 0;
+ 		
+ 	//set rmii ref clock 50MHz
++#if defined (CONFIG_RK29_VMAC_EXT_CLK) 	
++	mac_clk = clk_get(NULL, "rmii_clkin");//hzb
++#else
+ 	mac_clk = clk_get(NULL, "mac_ref_div");
++#endif
+ 	if (IS_ERR(mac_clk))
+ 		mac_clk = NULL;
+ 	arm_clk = clk_get(NULL, "arm_pll");
+@@ -1199,7 +1203,11 @@ int vmac_close(struct net_device *dev)
+ 		pdata->rmii_power_control(0);
+ 
+ 	//clock close
++#if defined (CONFIG_RK29_VMAC_EXT_CLK)
++    mac_clk = clk_get(NULL, "rmii_clkin");
++#else
+ 	mac_clk = clk_get(NULL, "mac_ref_div");
++#endif
+ 	if (IS_ERR(mac_clk))
+ 		mac_clk = NULL;
+ 	if (mac_clk) {
+@@ -1682,7 +1690,11 @@ static void rk29_vmac_power_off(struct net_device *dev)
+ 		pdata->rmii_power_control(0);
+ 
+ 	//clock close
++#if defined (CONFIG_RK29_VMAC_EXT_CLK)  	
++    clk_disable(clk_get(NULL, "rmii_clkin"));
++#else
+ 	clk_disable(clk_get(NULL, "mac_ref_div"));
++#endif
+ 	clk_disable(clk_get(NULL,"mii_rx"));
+ 	clk_disable(clk_get(NULL,"mii_tx"));
+ 	clk_disable(clk_get(NULL,"hclk_mac"));

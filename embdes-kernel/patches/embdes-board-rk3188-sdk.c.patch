@@ -1,0 +1,25 @@
+--- Olimex-kernel/arch/arm/mach-rk3188/board-rk3188-sdk.c	2017-05-05 16:37:11.000000000 +0530
++++ embdes-kernel/arch/arm/mach-rk3188/board-rk3188-sdk.c	2017-05-31 13:09:34.134250972 +0530
+@@ -1219,7 +1219,7 @@
+ #endif
+ 
+ #ifdef CONFIG_RK29_VMAC
+-#define PHY_PWR_EN_GPIO	RK30_PIN0_PC0
++#define PHY_PWR_EN_GPIO	RK30_PIN3_PD2	//Previously it was RK30_PIN0_PC0
+ #define PHY_PWR_EN_VALUE   GPIO_HIGH
+ #include "../mach-rk30/board-rk31-sdk-vmac.c"
+ 
+@@ -2137,6 +2137,13 @@
+ 
+ #ifdef CONFIG_I2C4_RK30
+ static struct i2c_board_info __initdata i2c4_info[] = {
++        #if defined (CONFIG_SND_SOC_ES8323)
++        {
++                .type                   = "es8323",
++                .addr                   = 0x10,
++                .flags                  = 0,
++        },
++    #endif
+     #if defined (CONFIG_SND_SOC_RT5616)
+     {
+                 .type                   = "rt5616",
