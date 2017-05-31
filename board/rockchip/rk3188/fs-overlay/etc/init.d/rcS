@@ -1,0 +1,88 @@
+#!/bin/sh
+
+
+# Start all init scripts in /etc/init.d
+# executing them in numerical order.
+#
+#===================================================
+modprobe 8723bu
+#===================================================
+
+file=/dev/mmcblk0p10
+dir=/mnt/userdata1
+if [ -e "$dir" ]
+then
+:
+else
+mkdir /mnt/userdata1
+if [ -e "$file" ]
+then
+mkfs.ext4 /dev/mmcblk0p8
+else
+mkfs.ext4 /dev/mmcblk0p7
+fi
+fi
+
+dir=/mnt/userdata2
+if [ -e "$dir" ]
+then
+:
+else
+mkdir /mnt/userdata2
+if [ -e "$file" ]
+then
+mkfs.ext4 /dev/mmcblk0p9
+else
+mkfs.ext4 /dev/mmcblk0p8
+fi
+fi
+
+dir=/mnt/backup         
+if [ -e "$dir" ]        
+then                    
+:                       
+else                    
+mkdir /mnt/backup       
+if [ -e "$file" ] 
+then                    
+mkfs.ext4 /dev/mmcblk0p10
+else                    
+mkfs.ext4 /dev/mmcblk0p9 
+fi                  
+fi   
+
+#===================================================
+file=/dev/mmcblk0p10
+if [ -e "$file" ]  
+then
+mount -t ext4 /dev/mmcblk0p8 /mnt/userdata1
+mount -t ext4 /dev/mmcblk0p9 /mnt/userdata2
+mount -t ext4 /dev/mmcblk0p10 /mnt/backup
+else
+mount -t ext4 /dev/mmcblk0p7 /mnt/userdata1
+mount -t ext4 /dev/mmcblk0p8 /mnt/userdata2
+mount -t ext4 /dev/mmcblk0p9 /mnt/backup
+fi
+#===================================================
+
+for i in /etc/init.d/S??* ;do
+
+     # Ignore dangling symlinks (if any).
+     [ ! -f "$i" ] && continue
+
+     case "$i" in
+	*.sh)
+	    # Source shell script for speed.
+	    (
+		trap - INT QUIT TSTP
+		set start
+		. $i
+	    )
+	    ;;
+	*)
+	    # No sh extension, so fork subprocess.
+	    $i start
+	    ;;
+    esac
+done
+
